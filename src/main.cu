@@ -6,7 +6,51 @@
 #include <unistd.h>
 #include <iostream>
 
-void print_image_pixels(unsigned char *img, int width, int height, int channels)
+
+__global__ void encode_decode_kernel(unsigned char *d_img, size_t size)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (index < size) {
+        d_img[index] ^= (index % 256);
+    }
+}
+
+__host__ unsigned char *process_image_GPU(unsigned char *img, int width, int height, int channels)
+{
+    size_t size =  (width * height * channels * sizeof(unsigned char));
+
+    unsigned char *new_image = new unsigned char[size];
+
+    if (!new_image) {
+        std::cerr << "faild to allocate for new image" << std::endl;
+        return NULL;
+    }
+
+    unsigned char *d_img;
+
+    cudaMalloc(&d_img, size); 
+
+    cudaMemcpy(d_img, img, size, cudaMemcpyHostToDevice);
+
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+
+    encode_decode_kernel<<<blocks, threads>>>(
+        d_img, 
+        size
+    );
+    
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(new_image, d_img, size, cudaMemcpyDeviceToHost);
+
+    cudaFree(d_img);
+
+    return new_image;
+}
+
+__host__ void print_image_pixels(unsigned char *img, int width, int height, int channels)
 {
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
@@ -25,35 +69,7 @@ void print_image_pixels(unsigned char *img, int width, int height, int channels)
     }
 }
 
-_global_ void encode_kernel(unsigned char *img, int width, int height)
-{
-
-}
-
-_global_ void decode_kernel()
-{
-
-}
-
-unsigned char *process_image_GPU(unsigned char *img, int width, int height, int channels)
-{
-    /*
-        here we start calling cuda APIS for performing Gpu PROCESSING FOR IMAGE 
-    */
-
-    unsigned char *new_image = new unsigned char[(height * width)];
-
-    if (!new_image) {
-        std::cerr << "faild to allocate for new image" << std::endl;
-        return NULL;
-    }
-    
-
-    encode_kernel<<4, 1<<(img, width, height);
-
-}
-
-int main(int ac, char **av)
+__host__ int main(int ac, char **av)
 {
     if (ac != 2) {
         std::cerr << "Usage: ./program image_file_name" << std::endl;
@@ -69,13 +85,9 @@ int main(int ac, char **av)
         return 1;
     }
 
-    print_image_pixels(img, width, height, channels); // original image
-
     unsigned char *new_image = process_image_GPU(img, width, height, channels);
 
-    print_image_pixels(new_image, width, height, channels); // new image
-
-    int ret = stbi_write_png("../image/output_new_image.png", width, height, channels, new_image, width * channels);
+    int ret = stbi_write_png(av[1], width, height, channels, new_image, width * channels);
 
     if (!ret) {
         std::cerr << "Error: faild to write back new image" << std::endl;
