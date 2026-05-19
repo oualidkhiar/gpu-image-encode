@@ -1,3 +1,4 @@
+
 # Compiler
 NVCC = nvcc
 
@@ -5,7 +6,7 @@ NVCC = nvcc
 TARGET = app
 
 # Source file
-SRC = main.cu
+SRC = src/main.cu
 
 # Compiler flags
 NVCC_FLAGS = -O2 -std=c++17
