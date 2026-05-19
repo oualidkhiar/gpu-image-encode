@@ -40,7 +40,7 @@ __host__ unsigned char *process_image_GPU(unsigned char *img, int width, int hei
         d_img, 
         size
     );
-    
+
     cudaDeviceSynchronize();
 
     cudaMemcpy(new_image, d_img, size, cudaMemcpyDeviceToHost);
@@ -95,6 +95,8 @@ __host__ int main(int ac, char **av)
     }
 
     stbi_image_free(img);
+
+    delete[] new_image;
 
     return 0;
 }
